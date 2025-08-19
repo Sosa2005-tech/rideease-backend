@@ -46,20 +46,41 @@ const Booking = mongoose.model('Booking', bookingSchema);
 // 6. API ROUTES
 // =================================================
 
-// --- Routes for Vehicles ---
-app.get('/api/vehicles', (req, res) => {
-  Vehicle.find()
-    .then(vehicles => res.json(vehicles))
-    .catch(err => res.status(500).json({ error: 'An error occurred' }));
-});
+// Replaced your old GET /api/vehicles route with this new async version
 
-app.post('/api/vehicles', (req, res) => {
-  const newVehicle = new Vehicle(req.body);
-  newVehicle.save()
-    .then(savedVehicle => res.status(201).json(savedVehicle))
-    .catch(err => res.status(400).json({ error: 'Failed to add vehicle' }));
-});
+app.get('/api/vehicles', async (req, res) => {
+  try {
+    // Get the current date, ignoring the time of day
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
+    // 1. First, get all vehicles from the database
+    const allVehicles = await Vehicle.find();
+
+    // 2. For each vehicle, check if it has a booking that includes today's date
+    const vehiclesWithAvailability = await Promise.all(
+      allVehicles.map(async (vehicle) => {
+        const conflictingBooking = await Booking.findOne({
+          vehicleName: vehicle.name, // Find bookings for this specific vehicle
+          startDate: { $lte: today }, // Where the booking started on or before today
+          endDate: { $gte: today }     // And ends on or after today
+        });
+
+        // 3. Convert to a plain object and add the new isAvailable property
+        const vehicleObject = vehicle.toObject();
+        vehicleObject.isAvailable = conflictingBooking ? false : true; // If a booking is found, it's not available
+        return vehicleObject;
+      })
+    );
+
+    // 4. Send the final, enhanced list to the frontend
+    res.json(vehiclesWithAvailability);
+
+  } catch (err) {
+    console.error('Error fetching vehicles with availability:', err);
+    res.status(500).json({ error: 'An error occurred while fetching vehicles' });
+  }
+});
 
 // --- Route for Bookings (THIS WAS MISSING) ---
 app.post('/api/bookings', (req, res) => {
