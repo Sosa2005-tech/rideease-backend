@@ -43,32 +43,45 @@ const Booking = mongoose.model('Booking', bookingSchema);
 // =================================================
 
 // --- GET All Vehicles (with Availability Status) ---
+// server.js
+// Replace the GET /api/vehicles route with this final version
+
 app.get('/api/vehicles', async (req, res) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // --- NEW: More robust date logic ---
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    // --- END NEW ---
 
     const allVehicles = await Vehicle.find();
 
     const vehiclesWithAvailability = await Promise.all(
       allVehicles.map(async (vehicle) => {
+
+        // --- UPDATED QUERY ---
         const conflictingBooking = await Booking.findOne({
           vehicleName: vehicle.name,
-          startDate: { $lte: today },
-          endDate: { $gte: today }
+          startDate: { $lte: endOfToday },   // Booking starts before today ends
+          endDate: { $gte: startOfToday }    // And ends after today begins
         });
+        // --- END UPDATED ---
+
         const vehicleObject = vehicle.toObject();
         vehicleObject.isAvailable = conflictingBooking ? false : true;
         return vehicleObject;
       })
     );
+
     res.json(vehiclesWithAvailability);
+
   } catch (err) {
     console.error('Error fetching vehicles with availability:', err);
     res.status(500).json({ error: 'An error occurred' });
   }
 });
-
 // --- POST a New Booking (with Double-Booking Prevention) ---
 app.post('/api/bookings', async (req, res) => {
   try {
