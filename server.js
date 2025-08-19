@@ -1,4 +1,4 @@
-// server.js
+// server.js - COMPLETE VERSION WITH BOOKING LOGIC
 
 // 1. IMPORTS
 const express = require('express');
@@ -20,41 +20,62 @@ mongoose.connect(dbURI)
   .then((result) => console.log('Connected to the database'))
   .catch((err) => console.log(err));
 
-// 5. DEFINE A SCHEMA AND MODEL
+// 5. DEFINE SCHEMAS AND MODELS
+// =================================================
+
+// --- Schema for Vehicles ---
 const vehicleSchema = new mongoose.Schema({
   name: String,
   type: String,
   price: Number
 });
-
 const Vehicle = mongoose.model('Vehicle', vehicleSchema);
+
+// --- Schema for Bookings (THIS WAS MISSING) ---
+const bookingSchema = new mongoose.Schema({
+    vehicleName: String,
+    customerName: String,
+    customerEmail: String,
+    startDate: Date,
+    endDate: Date,
+    totalPrice: Number
+});
+const Booking = mongoose.model('Booking', bookingSchema);
+
 
 // 6. API ROUTES
 // =================================================
 
-// --- GET All Vehicles ---
+// --- Routes for Vehicles ---
 app.get('/api/vehicles', (req, res) => {
   Vehicle.find()
-    .then(vehicles => {
-      res.json(vehicles);
+    .then(vehicles => res.json(vehicles))
+    .catch(err => res.status(500).json({ error: 'An error occurred' }));
+});
+
+app.post('/api/vehicles', (req, res) => {
+  const newVehicle = new Vehicle(req.body);
+  newVehicle.save()
+    .then(savedVehicle => res.status(201).json(savedVehicle))
+    .catch(err => res.status(400).json({ error: 'Failed to add vehicle' }));
+});
+
+
+// --- Route for Bookings (THIS WAS MISSING) ---
+app.post('/api/bookings', (req, res) => {
+  const newBooking = new Booking(req.body);
+  newBooking.save()
+    .then(savedBooking => {
+      // (Optional email logic would go here)
+      console.log('Booking saved:', savedBooking);
+      res.status(201).json(savedBooking);
     })
     .catch(err => {
-      res.status(500).json({ error: 'An error occurred' });
+      console.log('Booking save error:', err);
+      res.status(400).json({ error: 'Failed to create booking' });
     });
 });
 
-// --- POST a New Vehicle ---
-app.post('/api/vehicles', (req, res) => {
-  const vehicleData = req.body;
-  const newVehicle = new Vehicle(vehicleData);
-  newVehicle.save()
-    .then(savedVehicle => {
-      res.status(201).json(savedVehicle);
-    })
-    .catch(err => {
-      res.status(400).json({ error: 'Failed to add vehicle' });
-    });
-});
 
 // 7. START SERVER
 app.listen(PORT, () => {
